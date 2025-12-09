@@ -18,7 +18,7 @@ A Go package for synchronizing variables across network connections using a peer
 ## Installation
 
 ```bash
-go get sandbox/syncedVariables/network_variable
+go get github.com/samix73/network-variable
 ```
 
 ## Quick Start
@@ -34,7 +34,7 @@ import (
     "net"
     "time"
     
-    nv "sandbox/syncedVariables/network_variable"
+    nv "github.com/samix73/network-variable"
 )
 
 func main() {

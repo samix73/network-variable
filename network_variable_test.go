@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"sandbox/syncedVariables/network_variable"
+	network_variable "github.com/samix73/network-variable"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
