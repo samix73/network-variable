@@ -1,3 +1,5 @@
+[![CI](https://github.com/samix73/network-variable/actions/workflows/ci.yml/badge.svg)](https://github.com/samix73/network-variable/actions/workflows/ci.yml)
+
 # NetworkVariable
 
 A Go package for synchronizing variables across network connections using a peer-to-peer architecture.
