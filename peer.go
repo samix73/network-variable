@@ -68,6 +68,10 @@ func (s *Peer) Start(ctx context.Context, panicCallback func(r any)) error {
 		buf := make([]byte, s.options.bufferSize)
 		n, err := s.conn.Read(buf)
 		if err != nil {
+			if !errors.Is(err, net.ErrClosed) {
+				return nil
+			}
+
 			return err
 		}
 
