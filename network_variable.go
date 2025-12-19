@@ -10,6 +10,11 @@ import (
 	"sync"
 )
 
+var (
+	ErrInvalidVariableType = fmt.Errorf("invalid variable type")
+	ErrVariableIsNotValid  = fmt.Errorf("variable is not valid")
+)
+
 // Listener is a function that gets called when the NetworkVariable's value changes.
 type Listener[T comparable] func(oldValue, newVal T)
 
@@ -72,8 +77,8 @@ func NewNetworkVariable[T comparable](srv *Peer, id uint64, initial T) (*Network
 	if ok {
 		existing, ok := v.(*NetworkVariable[T])
 		if !ok {
-			return nil, fmt.Errorf("NewNetworkVariable: variable with id %d has different type %T expected %T",
-				id, v, &NetworkVariable[T]{})
+			return nil, fmt.Errorf("NewNetworkVariable: variable with id %d has different type %T expected %T %w",
+				id, v, &NetworkVariable[T]{}, ErrInvalidVariableType)
 		}
 
 		existing.valid = true
@@ -133,7 +138,7 @@ func (v *NetworkVariable[T]) sync(command command) error {
 		return fmt.Errorf("NetworkVariable.sync: failed to encode message: %w", err)
 	}
 
-	if _, err := v.srv.conn.Write(buf); err != nil {
+	if err := v.srv.write(buf); err != nil {
 		return fmt.Errorf("NetworkVariable.sync: failed to write to connection: %w", err)
 	}
 
@@ -153,7 +158,7 @@ func (v *NetworkVariable[T]) encodeMsg(command command) ([]byte, error) {
 	buf.WriteByte(separator)
 	buf.WriteByte(byte(command))
 
-	if v.value != nil {
+	if v.valid {
 		buf.WriteByte(separator)
 		if err := gob.NewEncoder(buf).Encode(v.value); err != nil {
 			return nil, fmt.Errorf("NetworkVariable.encodeMsg: failed to encode value: %w", err)
@@ -170,9 +175,12 @@ func (v *NetworkVariable[T]) Get() T {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
 
+	if !v.valid {
+		return zero[T]()
+	}
+
 	if v.value == nil {
-		var zero T
-		return zero
+		return zero[T]()
 	}
 
 	return *v.value
@@ -185,7 +193,7 @@ func (v *NetworkVariable[T]) Set(val T) error {
 	if !v.valid {
 		v.mu.Unlock()
 
-		return fmt.Errorf("NetworkVariable.Set: variable is not valid")
+		return fmt.Errorf("NetworkVariable.Set: %w", ErrVariableIsNotValid)
 	}
 
 	if v.value != nil && *v.value == val {
@@ -206,6 +214,21 @@ func (v *NetworkVariable[T]) Set(val T) error {
 
 	if err := v.sync(commandSet); err != nil {
 		return fmt.Errorf("NetworkVariable.Set: failed to sync value: %w", err)
+	}
+
+	return nil
+}
+
+// ID returns the unique identifier of the NetworkVariable.
+func (v *NetworkVariable[T]) ID() uint64 {
+	return v.id
+}
+
+// Deallocate removes the NetworkVariable from the network and marks it as invalid.
+func (v *NetworkVariable[T]) Deallocate() error {
+	v.deallocate()
+	if err := v.sync(commandDel); err != nil {
+		return fmt.Errorf("NetworkVariable.Deallocate: failed to sync deallocation: %w", err)
 	}
 
 	return nil
@@ -259,7 +282,7 @@ func (v *NetworkVariable[T]) notifyListeners(oldValue, newValue T) {
 func (v *NetworkVariable[T]) write(p []byte) error {
 	p = bytes.TrimSuffix(p, []byte{'\n'})
 	parts := bytes.SplitN(p, []byte{separator}, 3)
-	if len(parts) < 3 {
+	if len(parts) < 2 {
 		return fmt.Errorf("NetworkVariable.write: invalid message format")
 	}
 
@@ -273,6 +296,10 @@ func (v *NetworkVariable[T]) write(p []byte) error {
 	case commandDel:
 		v.deallocate()
 	case commandSet:
+		if len(parts) < 3 {
+			return fmt.Errorf("NetworkVariable.write: missing value for set command")
+		}
+
 		p = parts[2]
 
 		var val T
@@ -323,4 +350,9 @@ func getIndex(data []byte) (uint64, bool) {
 	}
 
 	return binary.LittleEndian.Uint64(data[:8]), true
+}
+
+func zero[T comparable]() T {
+	var zero T
+	return zero
 }

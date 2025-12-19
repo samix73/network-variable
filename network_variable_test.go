@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	network_variable "github.com/samix73/network-variable"
@@ -720,46 +721,103 @@ func TestNetworkVariable_DuplicateIDSameType(t *testing.T) {
 // TestNetworkVariable_DuplicateIDDifferentType tests creating a variable with an existing ID but different type
 func TestNetworkVariable_DuplicateIDDifferentType(t *testing.T) {
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		conn1, conn2 := net.Pipe()
+		defer closeConn(t, conn1)
+		defer closeConn(t, conn2)
 
-	conn1, conn2 := net.Pipe()
-	defer closeConn(t, conn1)
-	defer closeConn(t, conn2)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		defer cancel()
 
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	defer cancel()
+		srv1 := network_variable.NewPeer(conn1)
+		go func() {
+			err := srv1.Start(ctx, nil)
+			require.NoError(t, err)
 
-	srv1 := network_variable.NewPeer(conn1)
-	go func() {
-		err := srv1.Start(ctx, nil)
+		}()
+
+		srv2 := network_variable.NewPeer(conn2)
+		go func() {
+			err := srv2.Start(ctx, nil)
+			require.NoError(t, err)
+		}()
+
+		synctest.Wait()
+
+		// Create first variable with ID 101 as string
+		varID := uint64(101)
+		var1, err := network_variable.NewNetworkVariable[string](srv1, varID, "text")
+		require.NoError(t, err)
+		assert.Equal(t, "text", var1.Get())
+
+		// Try to create another variable with same ID but different type (int)
+		var2, err := network_variable.NewNetworkVariable[int](srv1, varID, 42)
+
+		// Should return an error because types don't match
+		assert.Error(t, err)
+		assert.Nil(t, var2)
+		assert.Contains(t, err.Error(), "different type", "Error should mention type mismatch")
+
+		// Original variable should still work
+		assert.Equal(t, "text", var1.Get())
+		err = var1.Set("updated")
+		require.NoError(t, err)
+		assert.Equal(t, "updated", var1.Get())
+	})
+}
+
+func TestNetworkVariable_Deallocate(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		conn1, conn2 := net.Pipe()
+		defer closeConn(t, conn1)
+		defer closeConn(t, conn2)
+
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		defer cancel()
+
+		peer1 := network_variable.NewPeer(conn1)
+		go func() {
+			err := peer1.Start(ctx, nil)
+			require.NoError(t, err)
+		}()
+
+		peer2 := network_variable.NewPeer(conn2)
+		go func() {
+			err := peer2.Start(ctx, nil)
+			require.NoError(t, err)
+		}()
+
+		synctest.Wait()
+
+		varID := uint64(200)
+
+		// Create variable on peer1
+		var1, err := network_variable.NewNetworkVariable[string](peer1, varID, "to_be_deleted")
+		require.NoError(t, err)
+		assert.Equal(t, "to_be_deleted", var1.Get())
+
+		synctest.Wait()
+
+		// Create corresponding variable on peer2
+		var2, err := network_variable.NewNetworkVariable[string](peer2, varID, "")
+		require.NoError(t, err)
+		assert.Equal(t, "to_be_deleted", var2.Get())
+
+		synctest.Wait()
+
+		// Deallocate variable on peer1
+		err = var1.Deallocate()
 		require.NoError(t, err)
 
-	}()
+		synctest.Wait()
 
-	srv2 := network_variable.NewPeer(conn2)
-	go func() {
-		err := srv2.Start(ctx, nil)
-		require.NoError(t, err)
-	}()
-
-	time.Sleep(50 * time.Millisecond)
-
-	// Create first variable with ID 101 as string
-	varID := uint64(101)
-	var1, err := network_variable.NewNetworkVariable[string](srv1, varID, "text")
-	require.NoError(t, err)
-	assert.Equal(t, "text", var1.Get())
-
-	// Try to create another variable with same ID but different type (int)
-	var2, err := network_variable.NewNetworkVariable[int](srv1, varID, 42)
-
-	// Should return an error because types don't match
-	assert.Error(t, err)
-	assert.Nil(t, var2)
-	assert.Contains(t, err.Error(), "different type", "Error should mention type mismatch")
-
-	// Original variable should still work
-	assert.Equal(t, "text", var1.Get())
-	err = var1.Set("updated")
-	require.NoError(t, err)
-	assert.Equal(t, "updated", var1.Get())
+		for i, variable := range []*network_variable.NetworkVariable[string]{var1, var2} {
+			err = variable.Set("new_value")
+			require.ErrorIsf(t, err, network_variable.ErrVariableIsNotValid, "Set should fail on deallocated variable (var %d)", i+1)
+			v := variable.Get()
+			require.Zero(t, v, "Get should return zero value on deallocated variable (var %d)", i+1)
+		}
+	})
 }

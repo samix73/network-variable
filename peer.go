@@ -142,6 +142,15 @@ func (s *Peer) getUnownedVariable(id uint64) ([]byte, bool) {
 	return b, ok
 }
 
+func (s *Peer) write(data []byte) error {
+	_, err := s.conn.Write(data)
+	if err != nil {
+		return fmt.Errorf("Peer.write: failed to write data: %w", err)
+	}
+
+	return nil
+}
+
 // Close shuts down the peer and releases all associated resources.
 func (s *Peer) Close() error {
 	if !s.closed.CompareAndSwap(false, true) {
