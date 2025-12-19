@@ -145,7 +145,7 @@ func (s *Peer) getUnownedVariable(id uint64) ([]byte, bool) {
 func (s *Peer) write(data []byte) error {
 	_, err := s.conn.Write(data)
 	if err != nil {
-		return fmt.Errorf("Peer.write: failed to write data: %w", err)
+		return fmt.Errorf("peer.write: failed to write data: %w", err)
 	}
 
 	return nil
