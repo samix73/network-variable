@@ -74,6 +74,16 @@ func main() {
 
 ## Core Concepts
 
+### Peer
+
+A `Peer` manages network variables over a single bidirectional connection. Both sides of a connection have equal capabilities - there's no client/server distinction.
+
+```go
+peer := nv.NewPeer(conn)
+go peer.Start(ctx, nil)
+defer peer.Close()
+```
+
 ### NetworkVariable
 
 A `NetworkVariable` is a synchronized variable identified by a unique ID. All peers with the same variable ID will keep that variable synchronized.
