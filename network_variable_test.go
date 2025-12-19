@@ -9,7 +9,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	network_variable "github.com/samix73/network-variable"
+	networkvariable "github.com/samix73/network-variable"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,16 +39,24 @@ func TestNetworkVariable_BasicSync(t *testing.T) {
 	defer cancel()
 
 	// Start first server
-	srv1 := network_variable.NewPeer(conn1)
+	peer1 := networkvariable.NewPeer(conn1)
+	defer func() {
+		err := peer1.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv1.Start(ctx, nil)
+		err := peer1.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
 	// Start second server
-	srv2 := network_variable.NewPeer(conn2)
+	peer2 := networkvariable.NewPeer(conn2)
+	defer func() {
+		err := peer2.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv2.Start(ctx, nil)
+		err := peer2.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
@@ -57,7 +65,7 @@ func TestNetworkVariable_BasicSync(t *testing.T) {
 
 	// Create variable on server 1
 	varID := uint64(100)
-	var1, err := network_variable.NewNetworkVariable(srv1, varID, "initial")
+	var1, err := networkvariable.NewNetworkVariable(peer1, varID, "initial")
 	require.NoError(t, err)
 	require.Equal(t, "initial", var1.Get())
 
@@ -65,7 +73,7 @@ func TestNetworkVariable_BasicSync(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Create variable on server 2 with same ID - should receive initial value
-	var2, err := network_variable.NewNetworkVariable(srv2, varID, "different")
+	var2, err := networkvariable.NewNetworkVariable(peer2, varID, "different")
 	require.NoError(t, err)
 	require.Equal(t, "initial", var2.Get(), "Peer 2 should receive initial value from server 1")
 
@@ -101,40 +109,48 @@ func TestNetworkVariable_MultipleVariables(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	srv1 := network_variable.NewPeer(conn1)
+	peer1 := networkvariable.NewPeer(conn1)
+	defer func() {
+		err := peer1.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv1.Start(ctx, nil)
+		err := peer1.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
-	srv2 := network_variable.NewPeer(conn2)
+	peer2 := networkvariable.NewPeer(conn2)
+	defer func() {
+		err := peer2.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv2.Start(ctx, nil)
+		err := peer2.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
 	time.Sleep(50 * time.Millisecond)
 
 	// Create multiple variables on server 1
-	strVar1, err := network_variable.NewNetworkVariable[string](srv1, 1, "hello")
+	strVar1, err := networkvariable.NewNetworkVariable[string](peer1, 1, "hello")
 	require.NoError(t, err)
 
-	intVar1, err := network_variable.NewNetworkVariable[int](srv1, 2, 42)
+	intVar1, err := networkvariable.NewNetworkVariable[int](peer1, 2, 42)
 	require.NoError(t, err)
 
-	boolVar1, err := network_variable.NewNetworkVariable[bool](srv1, 3, true)
+	boolVar1, err := networkvariable.NewNetworkVariable[bool](peer1, 3, true)
 	require.NoError(t, err)
 
 	time.Sleep(100 * time.Millisecond)
 
 	// Create corresponding variables on server 2
-	strVar2, err := network_variable.NewNetworkVariable[string](srv2, 1, "")
+	strVar2, err := networkvariable.NewNetworkVariable[string](peer2, 1, "")
 	require.NoError(t, err)
 
-	intVar2, err := network_variable.NewNetworkVariable[int](srv2, 2, 0)
+	intVar2, err := networkvariable.NewNetworkVariable[int](peer2, 2, 0)
 	require.NoError(t, err)
 
-	boolVar2, err := network_variable.NewNetworkVariable[bool](srv2, 3, false)
+	boolVar2, err := networkvariable.NewNetworkVariable[bool](peer2, 3, false)
 	require.NoError(t, err)
 
 	// Verify initial sync
@@ -169,28 +185,36 @@ func TestNetworkVariable_Listeners(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	srv1 := network_variable.NewPeer(conn1)
+	peer1 := networkvariable.NewPeer(conn1)
+	defer func() {
+		err := peer1.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv1.Start(ctx, nil)
+		err := peer1.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
-	srv2 := network_variable.NewPeer(conn2)
+	peer2 := networkvariable.NewPeer(conn2)
+	defer func() {
+		err := peer2.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv2.Start(ctx, nil)
+		err := peer2.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
 	time.Sleep(50 * time.Millisecond)
 
 	// Create variable on server 1
-	var1, err := network_variable.NewNetworkVariable[int](srv1, 10, 10)
+	var1, err := networkvariable.NewNetworkVariable[int](peer1, 10, 10)
 	require.NoError(t, err)
 
 	time.Sleep(100 * time.Millisecond)
 
 	// Create variable on server 2
-	var2, err := network_variable.NewNetworkVariable[int](srv2, 10, 0)
+	var2, err := networkvariable.NewNetworkVariable[int](peer2, 10, 0)
 	require.NoError(t, err)
 
 	// Add listeners
@@ -276,26 +300,34 @@ func TestNetworkVariable_ConcurrentUpdates(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	srv1 := network_variable.NewPeer(conn1)
+	peer1 := networkvariable.NewPeer(conn1)
+	defer func() {
+		err := peer1.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv1.Start(ctx, nil)
+		err := peer1.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
-	srv2 := network_variable.NewPeer(conn2)
+	peer2 := networkvariable.NewPeer(conn2)
+	defer func() {
+		err := peer2.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv2.Start(ctx, nil)
+		err := peer2.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
 	time.Sleep(50 * time.Millisecond)
 
-	var1, err := network_variable.NewNetworkVariable[int](srv1, 20, 0)
+	var1, err := networkvariable.NewNetworkVariable[int](peer1, 20, 0)
 	require.NoError(t, err)
 
 	time.Sleep(100 * time.Millisecond)
 
-	var2, err := network_variable.NewNetworkVariable[int](srv2, 20, 0)
+	var2, err := networkvariable.NewNetworkVariable[int](peer2, 20, 0)
 	require.NoError(t, err)
 
 	// Concurrent updates from one server only
@@ -337,15 +369,23 @@ func TestNetworkVariable_UnownedVariable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	srv1 := network_variable.NewPeer(conn1)
+	peer1 := networkvariable.NewPeer(conn1)
+	defer func() {
+		err := peer1.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv1.Start(ctx, nil)
+		err := peer1.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
-	srv2 := network_variable.NewPeer(conn2)
+	peer2 := networkvariable.NewPeer(conn2)
+	defer func() {
+		err := peer2.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv2.Start(ctx, nil)
+		err := peer2.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
@@ -353,19 +393,19 @@ func TestNetworkVariable_UnownedVariable(t *testing.T) {
 
 	// Create variable on server 1
 	varID := uint64(30)
-	var1, err := network_variable.NewNetworkVariable[string](srv1, varID, "from_srv1")
+	var1, err := networkvariable.NewNetworkVariable[string](peer1, varID, "from_peer1")
 	require.NoError(t, err)
 
-	// Wait for data to be sent and received by srv2
+	// Wait for data to be sent and received by peer2
 	time.Sleep(150 * time.Millisecond)
 
 	// Now create variable on server 2 - should receive the unowned data
-	var2, err := network_variable.NewNetworkVariable[string](srv2, varID, "from_srv2")
+	var2, err := networkvariable.NewNetworkVariable[string](peer2, varID, "from_srv2")
 	require.NoError(t, err)
 
 	// Should have value from server 1
-	assert.Equal(t, "from_srv1", var2.Get(), "Peer 2 should receive unowned variable data")
-	assert.Equal(t, "from_srv1", var1.Get())
+	assert.Equal(t, "from_peer1", var2.Get(), "Peer 2 should receive unowned variable data")
+	assert.Equal(t, "from_peer1", var1.Get())
 }
 
 // TestNetworkVariable_SameValueSet tests that setting the same value doesn't trigger sync
@@ -379,26 +419,34 @@ func TestNetworkVariable_SameValueSet(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	srv1 := network_variable.NewPeer(conn1)
+	peer1 := networkvariable.NewPeer(conn1)
+	defer func() {
+		err := peer1.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv1.Start(ctx, nil)
+		err := peer1.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
-	srv2 := network_variable.NewPeer(conn2)
+	peer2 := networkvariable.NewPeer(conn2)
+	defer func() {
+		err := peer2.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv2.Start(ctx, nil)
+		err := peer2.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
 	time.Sleep(50 * time.Millisecond)
 
-	var1, err := network_variable.NewNetworkVariable[int](srv1, 50, 100)
+	var1, err := networkvariable.NewNetworkVariable[int](peer1, 50, 100)
 	require.NoError(t, err)
 
 	time.Sleep(100 * time.Millisecond)
 
-	var2, err := network_variable.NewNetworkVariable[int](srv2, 50, 0)
+	var2, err := networkvariable.NewNetworkVariable[int](peer2, 50, 0)
 	require.NoError(t, err)
 
 	// Add listener to track calls
@@ -429,14 +477,24 @@ func TestNetworkVariable_LargeBufferSize(t *testing.T) {
 	defer cancel()
 
 	// Use larger buffer size
-	srv1 := network_variable.NewPeer(conn1, network_variable.WithBufferSize(8192))
+	peer1 := networkvariable.NewPeer(conn1, networkvariable.WithBufferSize(8192))
+	defer func() {
+		err := peer1.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		_ = srv1.Start(ctx, nil)
+		err := peer1.Start(ctx, nil)
+		assert.NoError(t, err)
 	}()
 
-	srv2 := network_variable.NewPeer(conn2, network_variable.WithBufferSize(8192))
+	peer2 := networkvariable.NewPeer(conn2, networkvariable.WithBufferSize(8192))
+	defer func() {
+		err := peer2.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		_ = srv2.Start(ctx, nil)
+		err := peer2.Start(ctx, nil)
+		require.NoError(t, err)
 	}()
 
 	time.Sleep(50 * time.Millisecond)
@@ -447,12 +505,12 @@ func TestNetworkVariable_LargeBufferSize(t *testing.T) {
 		largeString = largeString[:i] + "a" + largeString[i+1:]
 	}
 
-	_, err := network_variable.NewNetworkVariable[string](srv1, 60, largeString)
+	_, err := networkvariable.NewNetworkVariable[string](peer1, 60, largeString)
 	require.NoError(t, err)
 
 	time.Sleep(200 * time.Millisecond)
 
-	var2, err := network_variable.NewNetworkVariable[string](srv2, 60, "")
+	var2, err := networkvariable.NewNetworkVariable[string](peer2, 60, "")
 	require.NoError(t, err)
 
 	assert.Equal(t, len(largeString), len(var2.Get()), "Large string should sync correctly")
@@ -469,19 +527,29 @@ func TestNetworkVariable_MultipleListeners(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	srv1 := network_variable.NewPeer(conn1)
+	peer1 := networkvariable.NewPeer(conn1)
+	defer func() {
+		err := peer1.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		_ = srv1.Start(ctx, nil)
+		err := peer1.Start(ctx, nil)
+		assert.NoError(t, err)
 	}()
 
-	srv2 := network_variable.NewPeer(conn2)
+	peer2 := networkvariable.NewPeer(conn2)
+	defer func() {
+		err := peer2.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		_ = srv2.Start(ctx, nil)
+		err := peer2.Start(ctx, nil)
+		assert.NoError(t, err)
 	}()
 
 	time.Sleep(50 * time.Millisecond)
 
-	var1, err := network_variable.NewNetworkVariable[int](srv1, 70, 0)
+	var1, err := networkvariable.NewNetworkVariable[int](peer1, 70, 0)
 	require.NoError(t, err)
 
 	// Add multiple listeners
@@ -522,24 +590,34 @@ func TestNetworkVariable_RapidUpdates(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	srv1 := network_variable.NewPeer(conn1)
+	peer1 := networkvariable.NewPeer(conn1)
+	defer func() {
+		err := peer1.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		_ = srv1.Start(ctx, nil)
+		err := peer1.Start(ctx, nil)
+		assert.NoError(t, err)
 	}()
 
-	srv2 := network_variable.NewPeer(conn2)
+	peer2 := networkvariable.NewPeer(conn2)
+	defer func() {
+		err := peer2.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		_ = srv2.Start(ctx, nil)
+		err := peer2.Start(ctx, nil)
+		assert.NoError(t, err)
 	}()
 
 	time.Sleep(50 * time.Millisecond)
 
-	var1, err := network_variable.NewNetworkVariable[int](srv1, 90, 0)
+	var1, err := networkvariable.NewNetworkVariable[int](peer1, 90, 0)
 	require.NoError(t, err)
 
 	time.Sleep(100 * time.Millisecond)
 
-	var2, err := network_variable.NewNetworkVariable[int](srv2, 90, 0)
+	var2, err := networkvariable.NewNetworkVariable[int](peer2, 90, 0)
 	require.NoError(t, err)
 
 	// Rapid updates
@@ -572,25 +650,35 @@ func TestNetworkVariable_StructType(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	srv1 := network_variable.NewPeer(conn1)
+	peer1 := networkvariable.NewPeer(conn1)
+	defer func() {
+		err := peer1.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		_ = srv1.Start(ctx, nil)
+		err := peer1.Start(ctx, nil)
+		assert.NoError(t, err)
 	}()
 
-	srv2 := network_variable.NewPeer(conn2)
+	peer2 := networkvariable.NewPeer(conn2)
+	defer func() {
+		err := peer2.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		_ = srv2.Start(ctx, nil)
+		err := peer2.Start(ctx, nil)
+		assert.NoError(t, err)
 	}()
 
 	time.Sleep(50 * time.Millisecond)
 
 	initialPerson := Person{Name: "Alice", Age: 30}
-	var1, err := network_variable.NewNetworkVariable[Person](srv1, 95, initialPerson)
+	var1, err := networkvariable.NewNetworkVariable[Person](peer1, 95, initialPerson)
 	require.NoError(t, err)
 
 	time.Sleep(100 * time.Millisecond)
 
-	var2, err := network_variable.NewNetworkVariable[Person](srv2, 95, Person{})
+	var2, err := networkvariable.NewNetworkVariable[Person](peer2, 95, Person{})
 	require.NoError(t, err)
 
 	// Verify sync
@@ -621,19 +709,29 @@ func TestNetworkVariable_ListenerOldValue(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	srv1 := network_variable.NewPeer(conn1)
+	peer1 := networkvariable.NewPeer(conn1)
+	defer func() {
+		err := peer1.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		_ = srv1.Start(ctx, nil)
+		err := peer1.Start(ctx, nil)
+		assert.NoError(t, err)
 	}()
 
-	srv2 := network_variable.NewPeer(conn2)
+	peer2 := networkvariable.NewPeer(conn2)
+	defer func() {
+		err := peer2.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		_ = srv2.Start(ctx, nil)
+		err := peer2.Start(ctx, nil)
+		assert.NoError(t, err)
 	}()
 
 	time.Sleep(50 * time.Millisecond)
 
-	var1, err := network_variable.NewNetworkVariable[int](srv1, 96, 100)
+	var1, err := networkvariable.NewNetworkVariable[int](peer1, 96, 100)
 	require.NoError(t, err)
 
 	var receivedOld, receivedNew []int
@@ -684,15 +782,23 @@ func TestNetworkVariable_DuplicateIDSameType(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	srv1 := network_variable.NewPeer(conn1)
+	peer1 := networkvariable.NewPeer(conn1)
+	defer func() {
+		err := peer1.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv1.Start(ctx, nil)
+		err := peer1.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
-	srv2 := network_variable.NewPeer(conn2)
+	peer2 := networkvariable.NewPeer(conn2)
+	defer func() {
+		err := peer2.Close()
+		assert.NoError(t, err)
+	}()
 	go func() {
-		err := srv2.Start(ctx, nil)
+		err := peer2.Start(ctx, nil)
 		require.NoError(t, err)
 	}()
 
@@ -700,12 +806,12 @@ func TestNetworkVariable_DuplicateIDSameType(t *testing.T) {
 
 	// Create first variable with ID 100
 	varID := uint64(100)
-	var1, err := network_variable.NewNetworkVariable[string](srv1, varID, "first")
+	var1, err := networkvariable.NewNetworkVariable[string](peer1, varID, "first")
 	require.NoError(t, err)
 	assert.Equal(t, "first", var1.Get())
 
 	// Try to create another variable with same ID and same type
-	var2, err := network_variable.NewNetworkVariable[string](srv1, varID, "second")
+	var2, err := networkvariable.NewNetworkVariable[string](peer1, varID, "second")
 	require.NoError(t, err)
 
 	// Should return the existing variable, not create a new one
@@ -729,16 +835,24 @@ func TestNetworkVariable_DuplicateIDDifferentType(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
-		srv1 := network_variable.NewPeer(conn1)
+		peer1 := networkvariable.NewPeer(conn1)
+		defer func() {
+			err := peer1.Close()
+			assert.NoError(t, err)
+		}()
 		go func() {
-			err := srv1.Start(ctx, nil)
+			err := peer1.Start(ctx, nil)
 			require.NoError(t, err)
 
 		}()
 
-		srv2 := network_variable.NewPeer(conn2)
+		peer2 := networkvariable.NewPeer(conn2)
+		defer func() {
+			err := peer2.Close()
+			assert.NoError(t, err)
+		}()
 		go func() {
-			err := srv2.Start(ctx, nil)
+			err := peer2.Start(ctx, nil)
 			require.NoError(t, err)
 		}()
 
@@ -746,12 +860,12 @@ func TestNetworkVariable_DuplicateIDDifferentType(t *testing.T) {
 
 		// Create first variable with ID 101 as string
 		varID := uint64(101)
-		var1, err := network_variable.NewNetworkVariable[string](srv1, varID, "text")
+		var1, err := networkvariable.NewNetworkVariable[string](peer1, varID, "text")
 		require.NoError(t, err)
 		assert.Equal(t, "text", var1.Get())
 
 		// Try to create another variable with same ID but different type (int)
-		var2, err := network_variable.NewNetworkVariable[int](srv1, varID, 42)
+		var2, err := networkvariable.NewNetworkVariable[int](peer1, varID, 42)
 
 		// Should return an error because types don't match
 		assert.Error(t, err)
@@ -777,13 +891,21 @@ func TestNetworkVariable_Deallocate(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
-		peer1 := network_variable.NewPeer(conn1)
+		peer1 := networkvariable.NewPeer(conn1)
+		defer func() {
+			err := peer1.Close()
+			assert.NoError(t, err)
+		}()
 		go func() {
 			err := peer1.Start(ctx, nil)
 			require.NoError(t, err)
 		}()
 
-		peer2 := network_variable.NewPeer(conn2)
+		peer2 := networkvariable.NewPeer(conn2)
+		defer func() {
+			err := peer2.Close()
+			assert.NoError(t, err)
+		}()
 		go func() {
 			err := peer2.Start(ctx, nil)
 			require.NoError(t, err)
@@ -794,14 +916,14 @@ func TestNetworkVariable_Deallocate(t *testing.T) {
 		varID := uint64(200)
 
 		// Create variable on peer1
-		var1, err := network_variable.NewNetworkVariable[string](peer1, varID, "to_be_deleted")
+		var1, err := networkvariable.NewNetworkVariable[string](peer1, varID, "to_be_deleted")
 		require.NoError(t, err)
 		assert.Equal(t, "to_be_deleted", var1.Get())
 
 		synctest.Wait()
 
 		// Create corresponding variable on peer2
-		var2, err := network_variable.NewNetworkVariable[string](peer2, varID, "")
+		var2, err := networkvariable.NewNetworkVariable[string](peer2, varID, "")
 		require.NoError(t, err)
 		assert.Equal(t, "to_be_deleted", var2.Get())
 
@@ -813,9 +935,9 @@ func TestNetworkVariable_Deallocate(t *testing.T) {
 
 		synctest.Wait()
 
-		for i, variable := range []*network_variable.NetworkVariable[string]{var1, var2} {
+		for i, variable := range []*networkvariable.NetworkVariable[string]{var1, var2} {
 			err = variable.Set("new_value")
-			require.ErrorIsf(t, err, network_variable.ErrVariableIsNotValid, "Set should fail on deallocated variable (var %d)", i+1)
+			require.ErrorIsf(t, err, networkvariable.ErrVariableIsNotValid, "Set should fail on deallocated variable (var %d)", i+1)
 			v := variable.Get()
 			require.Zero(t, v, "Get should return zero value on deallocated variable (var %d)", i+1)
 		}
