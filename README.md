@@ -307,10 +307,6 @@ go test -race  # Check for race conditions
 go test -cover # Check test coverage
 ```
 
-## License
-
-[Your License Here]
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
