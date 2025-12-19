@@ -10,12 +10,12 @@ A Go package for synchronizing variables across network connections using a peer
 
 ## Features
 
-- 🔄 **Bidirectional synchronization** - Changes propagate in both directions
-- 🎯 **Type-safe** - Uses Go generics for compile-time type safety
-- 🔔 **Change listeners** - Subscribe to value changes with callbacks
-- 🔒 **Thread-safe** - Safe for concurrent use from multiple goroutines
-- ⚡ **Efficient** - Only syncs when values actually change
-- 🎭 **Multiple types** - Supports any serializable Go type (primitives, structs, etc.)
+- **Bidirectional synchronization** - Changes propagate in both directions
+- **Type-safe** - Uses Go generics for compile-time type safety
+- **Change listeners** - Subscribe to value changes with callbacks
+- **Thread-safe** - Safe for concurrent use from multiple goroutines
+- **Efficient** - Only syncs when values actually change
+- **Multiple types** - Supports any serializable Go type (primitives, structs, etc.)
 
 ## Installation
 
@@ -73,16 +73,6 @@ func main() {
 ```
 
 ## Core Concepts
-
-### Peer
-
-A `Peer` manages network variables over a single bidirectional connection. Both sides of a connection have equal capabilities - there's no client/server distinction.
-
-```go
-peer := nv.NewPeer(conn)
-go peer.Start(ctx, nil)
-defer peer.Close()
-```
 
 ### NetworkVariable
 
